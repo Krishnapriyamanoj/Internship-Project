@@ -31,9 +31,8 @@ with st.sidebar:
     st.header("⚙️ Configuration")
 
     gemini_api_key = os.getenv("GEMINI_API_KEY")
-    st.write("API Key Loaded:", bool(gemini_api_key))
 
-    # 🔴 Model name kept exactly as requested
+
     model_name = "gemini-2.5-flash-lite"
 
     difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
