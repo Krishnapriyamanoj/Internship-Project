@@ -9,13 +9,11 @@ import google.generativeai as genai
 
 from sentence_transformers import SentenceTransformer
 from fpdf import FPDF
-from dotenv import load_dotenv
 
 
-
-load_dotenv()
-
-
+# ======================================================
+# PAGE CONFIGURATION
+# ======================================================
 st.set_page_config(
     page_title="AI Exam Generator Pro",
     page_icon="📝",
@@ -26,20 +24,22 @@ st.title("📝 AI Exam Paper Generator")
 st.write("Convert your syllabus PDF into a structured university-style exam paper.")
 
 
+# ======================================================
 # SIDEBAR CONFIGURATION
+# ======================================================
 with st.sidebar:
     st.header("⚙️ Configuration")
 
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-
-
+    gemini_api_key =st.secrets["api_keys"]["gemini_api_key"]
     model_name = "gemini-2.5-flash-lite"
 
     difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
     total_marks = st.selectbox("Exam Type", ["50 Marks", "75 Marks", "100 Marks"])
 
 
+# ======================================================
 # EMBEDDING MODEL
+# ======================================================
 @st.cache_resource
 def load_embedding_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
@@ -48,7 +48,9 @@ def load_embedding_model():
 embed_model = load_embedding_model()
 
 
+# ======================================================
 # TEXT UTILITIES
+# ======================================================
 def clean_text(text: str) -> str:
     text = re.sub(r"Page\s+\d+", "", text)
     text = re.sub(r"\n+", "\n", text)
@@ -68,6 +70,23 @@ def normalize_for_pdf(text: str) -> str:
     text = text.replace("---", "\n" + "-" * 45 + "\n")
 
     return text.strip()
+
+def extract_syllabus_subject(text: str) -> str:
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+    for line in lines[:20]:  # first page only
+        if (
+            len(line) < 80
+            and not re.search(r"\d", line)
+            and not any(
+                kw in line.lower()
+                for kw in ["semester", "unit", "module", "course"]
+            )
+        ):
+            return line.upper()
+
+    return "UNIVERSITY EXAMINATION"
+
 
 
 def extract_topics(text: str, k: int = 15):
@@ -124,7 +143,9 @@ def exam_structure(marks: str) -> str:
     return structures.get(marks, "")
 
 
+# ======================================================
 # PDF GENERATION
+# ======================================================
 def create_pdf(text: str, title: str):
     pdf = FPDF()
     pdf.add_page()
@@ -177,13 +198,16 @@ def create_pdf(text: str, title: str):
     )
 
 
-# MAIN APPLICATION 
+# ======================================================
+# MAIN APPLICATION LOGIC
+# ======================================================
 uploaded_file = st.file_uploader(
     "📄 Step 1: Upload Syllabus (PDF)",
     type="pdf"
 )
 
 text_data = ""
+subject_title = "UNIVERSITY EXAMINATION"
 
 if uploaded_file:
     with st.status("Reading PDF..."):
@@ -193,11 +217,11 @@ if uploaded_file:
         )
         for page in doc:
             text_data += clean_text(page.get_text())
-
+    subject_title = extract_syllabus_subject(text_data)
     st.success("✅ Syllabus Loaded")
 
 
-if st.button("🚀 Step 2: Generate Question Paper"):
+if st.button(" Step 2: Generate Question Paper"):
     if not gemini_api_key:
         st.error("❌ GEMINI_API_KEY missing")
         st.stop()
@@ -219,6 +243,9 @@ You are a strict University Professor.
 
 Create a formal {total_marks} examination paper.
 
+SUBJECT:
+{subject_title}
+
 TOPICS:
 {topics_summary}
 
@@ -232,6 +259,7 @@ RULES:
 - No answers
 - MCQs must have (A)(B)(C)(D)
 - University exam tone
+- Heading of the question paper {subject_title}
 """
 
             response = model.generate_content(prompt)
@@ -247,7 +275,7 @@ RULES:
 
             pdf_bytes = create_pdf(
                 exam_text,
-                f"{total_marks} Examination"
+                subject_title
             )
 
             st.download_button(
