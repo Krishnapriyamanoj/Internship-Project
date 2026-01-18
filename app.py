@@ -11,9 +11,6 @@ from sentence_transformers import SentenceTransformer
 from fpdf import FPDF
 
 
-# ======================================================
-# PAGE CONFIGURATION
-# ======================================================
 st.set_page_config(
     page_title="AI Exam Generator Pro",
     page_icon="📝",
@@ -24,9 +21,6 @@ st.title("📝 AI Exam Paper Generator")
 st.write("Convert your syllabus PDF into a structured university-style exam paper.")
 
 
-# ======================================================
-# SIDEBAR CONFIGURATION
-# ======================================================
 with st.sidebar:
     st.header("⚙️ Configuration")
 
@@ -37,9 +31,6 @@ with st.sidebar:
     total_marks = st.selectbox("Exam Type", ["50 Marks", "75 Marks", "100 Marks"])
 
 
-# ======================================================
-# EMBEDDING MODEL
-# ======================================================
 @st.cache_resource
 def load_embedding_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
@@ -48,9 +39,6 @@ def load_embedding_model():
 embed_model = load_embedding_model()
 
 
-# ======================================================
-# TEXT UTILITIES
-# ======================================================
 def clean_text(text: str) -> str:
     text = re.sub(r"Page\s+\d+", "", text)
     text = re.sub(r"\n+", "\n", text)
@@ -59,14 +47,12 @@ def clean_text(text: str) -> str:
 
 
 def normalize_for_pdf(text: str) -> str:
-    # Remove markdown artifacts
+    
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"\*(.*?)\*", r"\1", text)
 
-    # Improve numbering spacing
     text = re.sub(r"\n(\d+\.)", r"\n\n\1", text)
 
-    # Replace separators
     text = text.replace("---", "\n" + "-" * 45 + "\n")
 
     return text.strip()
@@ -74,7 +60,7 @@ def normalize_for_pdf(text: str) -> str:
 def extract_syllabus_subject(text: str) -> str:
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-    for line in lines[:20]:  # first page only
+    for line in lines[:20]:  
         if (
             len(line) < 80
             and not re.search(r"\d", line)
@@ -143,9 +129,6 @@ def exam_structure(marks: str) -> str:
     return structures.get(marks, "")
 
 
-# ======================================================
-# PDF GENERATION
-# ======================================================
 def create_pdf(text: str, title: str):
     pdf = FPDF()
     pdf.add_page()
@@ -156,7 +139,7 @@ def create_pdf(text: str, title: str):
 
     width = pdf.w - 2 * margin
 
-    # Header
+
     pdf.set_font("Helvetica", "B", 16)
     pdf.cell(width, 10, title.upper(), ln=True, align="C")
 
@@ -172,7 +155,7 @@ def create_pdf(text: str, title: str):
 
     pdf.set_font("Helvetica", size=11)
 
-    # Paragraph-based rendering
+
     for para in text.split("\n\n"):
         para = para.strip()
 
@@ -198,9 +181,6 @@ def create_pdf(text: str, title: str):
     )
 
 
-# ======================================================
-# MAIN APPLICATION LOGIC
-# ======================================================
 uploaded_file = st.file_uploader(
     "📄 Step 1: Upload Syllabus (PDF)",
     type="pdf"
